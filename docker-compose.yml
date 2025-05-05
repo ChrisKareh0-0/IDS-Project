@@ -1,0 +1,45 @@
+networks:
+  pentest-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.56.0/24
+
+services:
+  kali:
+    build:
+      context: .
+      dockerfile: kali.Dockerfile      # custom image with tools pre-installed
+    image: ids-lab/kali-tools:latest
+    container_name: kali_ct
+    networks:
+      pentest-net:
+        ipv4_address: 192.168.56.10
+    cap_add: [NET_RAW, NET_ADMIN]
+    tty: true                          # starts in an interactive shell
+
+  metasploitable:
+    image: peakkk/metasploitable:latest
+    container_name: metasploitable_ct
+    networks:
+      pentest-net:
+        ipv4_address: 192.168.56.20
+    tty: true
+
+  ubuntu_snort:
+    image: ubuntu:22.04
+    container_name: ubuntu_snort_ct
+    networks:
+      pentest-net:
+        ipv4_address: 192.168.56.30
+    cap_add: [NET_ADMIN]
+    volumes:
+      - ./snort-conf:/etc/snort
+    command: >
+      bash -c "
+        apt update &&
+        DEBIAN_FRONTEND=noninteractive apt -y install \
+            snort snort-rules-default tcpreplay &&   # ← added tcpreplay
+        snort --daq afpacket -i eth0 -v -A fast -c /etc/snort/snort.conf
+      "
+
